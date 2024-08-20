@@ -1,0 +1,551 @@
+---
+title: "1"
+format: html
+editor: visual
+---
+
+```{r}
+library(readxl)
+library(viridis)
+library(ggplot2)
+library(sf)
+library(ggspatial)
+library(tidyr)
+library(dplyr)
+library(pastecs)
+library(patchwork)
+library(leaflet)
+library(summarytools)
+
+```
+
+```{r}
+
+precipitaciones <- read_excel("C:\\Users\\Administrador\\Documents\\R\\precipitaciones\\precipitaciones.xlsx")
+head(precipitaciones)
+hist(precipitaciones$AÑO, n=75)
+
+```
+
+```{r}
+stat.desc(precipitaciones)
+summary(precipitaciones)
+```
+
+```{r}
+# Convertir los datos a formato largo
+long_data <- precipitaciones %>%
+  pivot_longer(cols = ENERO:DICIEMBRE, names_to = "Mes", values_to = "Precipitacion")
+
+# Calcular el total de precipitaciones por mes
+total_precipitation_by_month <- long_data %>%
+  group_by(Mes) %>%
+  summarise(TotalPrecipitacion = sum(Precipitacion, na.rm = TRUE)) %>%
+  arrange(desc(TotalPrecipitacion))
+
+# Mes con mayor precipitación
+mes_mas_lluvioso <- total_precipitation_by_month[1,]
+mes_mas_lluvioso
+
+# Mes con menor precipitación
+mes_menos_lluvioso <- total_precipitation_by_month[nrow(total_precipitation_by_month),]
+mes_menos_lluvioso
+
+# Calcular el total de precipitaciones por año
+total_precipitation_by_year <- long_data %>%
+  group_by(AÑO) %>%
+  summarise(TotalPrecipitacion = sum(Precipitacion, na.rm = TRUE)) %>%
+  arrange(desc(TotalPrecipitacion))
+
+# Año con mayor precipitación
+año_mas_lluvioso <- total_precipitation_by_year[1,]
+
+# Año con menor precipitación
+año_menos_lluvioso <- total_precipitation_by_year[nrow(total_precipitation_by_year),]
+
+# Imprimir resultados
+print("Mes con mayor precipitación:")
+print(mes_mas_lluvioso)
+
+print("Mes con menor precipitación:")
+print(mes_menos_lluvioso)
+
+print("Año con mayor precipitación:")
+print(año_mas_lluvioso)
+
+print("Año con menor precipitación:")
+print(año_menos_lluvioso)
+
+
+```
+
+```{r}
+total_precipitation_by_year <- precipitaciones %>%
+  group_by(AÑO) %>%
+  summarise(TotalPrecipitacion = sum(c_across(ENERO:DICIEMBRE), na.rm = TRUE)) %>%
+  arrange(desc(TotalPrecipitacion))
+
+top7_years <- total_precipitation_by_year %>%
+  slice_max(TotalPrecipitacion, n = 7)
+
+bottom7_years <- total_precipitation_by_year %>%
+  slice_min(TotalPrecipitacion, n = 7)
+
+
+ggplot(top7_years, aes(x = reorder(factor(AÑO), TotalPrecipitacion), y = TotalPrecipitacion, fill = TotalPrecipitacion)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis", direction = -1) +
+  labs(title = "Top 7 Años con Mayor Precipitación" ,
+       x = "Año",
+       y = "Total de Precipitaciones (mm)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(bottom7_years, aes(x = reorder(factor(AÑO), TotalPrecipitacion), y = TotalPrecipitacion, fill = TotalPrecipitacion)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis", direction = -1) +
+  labs(title = "Top 7 Años con Menor Precipitación",
+       x = "Año",
+       y = "Total de Precipitaciones (mm)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+```{r}
+# Gráfico de barras para los meses más y menos lluviosos
+ggplot(total_precipitation_by_month, aes(x = reorder(Mes, -TotalPrecipitacion), y = TotalPrecipitacion, fill = TotalPrecipitacion)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  labs(title = "Precipitación Total por Mes",
+       x = "Mes",
+       y = "Total de Precipitaciones (mm)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+# Represa Sisga
+
+```{r}
+represa_sisga_data <- precipitaciones %>%
+  filter(ESTACIÓN == "Represa Sisga")
+
+monthly_averages <- represa_sisga_data %>%
+  summarise(
+    ENERO = mean(ENERO, na.rm = TRUE),
+    FEBRERO = mean(FEBRERO, na.rm = TRUE),
+    MARZO = mean(MARZO, na.rm = TRUE),
+    ABRIL = mean(ABRIL, na.rm = TRUE),
+    MAYO = mean(MAYO, na.rm = TRUE),
+    JUNIO = mean(JUNIO, na.rm = TRUE),
+    JULIO = mean(JULIO, na.rm = TRUE),
+    AGOSTO = mean(AGOSTO, na.rm = TRUE),
+    SEPTIEMBRE = mean(SEPTIEMBRE, na.rm = TRUE),
+    OCTUBRE = mean(OCTUBRE, na.rm = TRUE),
+    NOVIEMBRE = mean(NOVIEMBRE, na.rm = TRUE),
+    DICIEMBRE = mean(DICIEMBRE, na.rm = TRUE)
+  )
+
+monthly_averages_long <- monthly_averages %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio")
+
+monthly_averages_long$Mes <- factor(monthly_averages_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(monthly_averages_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "mako") +  
+  labs(title = "Promedio de Precipitaciones Mensuales en Represa Sisga",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+represa_sisga_long <- represa_sisga_data %>%
+  pivot_longer(
+    cols = ENERO:DICIEMBRE,
+    names_to = "Mes",
+    values_to = "Precipitacion"
+  )
+
+represa_sisga_long$Mes <- factor(represa_sisga_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(represa_sisga_long, aes(x = Mes, y = Precipitacion, fill = Mes)) +
+  geom_boxplot() +  
+  scale_fill_viridis_d(option = "mako") +
+    labs(title = "Distribución Mensual de Precipitaciones en Represa Sisga",
+       x = "Mes",
+       y = "Precipitación") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+summary
+
+```
+
+# General
+
+```{r}
+monthly_averages <- precipitaciones %>%
+  summarise(
+    ENERO = mean(ENERO, na.rm = TRUE),
+    FEBRERO = mean(FEBRERO, na.rm = TRUE),
+    MARZO = mean(MARZO, na.rm = TRUE),
+    ABRIL = mean(ABRIL, na.rm = TRUE),
+    MAYO = mean(MAYO, na.rm = TRUE),
+    JUNIO = mean(JUNIO, na.rm = TRUE),
+    JULIO = mean(JULIO, na.rm = TRUE),
+    AGOSTO = mean(AGOSTO, na.rm = TRUE),
+    SEPTIEMBRE = mean(SEPTIEMBRE, na.rm = TRUE),
+    OCTUBRE = mean(OCTUBRE, na.rm = TRUE),
+    NOVIEMBRE = mean(NOVIEMBRE, na.rm = TRUE),
+    DICIEMBRE = mean(DICIEMBRE, na.rm = TRUE)
+  )
+
+monthly_averages_long <- monthly_averages %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio")
+
+monthly_averages_long$Mes <- factor(monthly_averages_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(monthly_averages_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis") +  
+  labs(title = "Promedio de Precipitaciones Mensuales",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+precipitaciones_long <- precipitaciones%>%
+  pivot_longer(
+    cols = ENERO:DICIEMBRE,
+    names_to = "Mes",
+    values_to = "Precipitacion"
+  )
+
+precipitaciones_long$Mes <- factor(precipitaciones_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(precipitaciones_long, aes(x = Mes, y = Precipitacion, fill = Mes)) +
+  geom_boxplot() +  
+  scale_fill_viridis_d(option = "viridis") +
+  labs(title = "Distribución Mensual de Precipitaciones",
+       x = "Mes",
+       y = "Precipitación") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+# Zipaquira
+
+```{r}
+zipaquira_data <- precipitaciones %>%
+  filter(ESTACIÓN == "Zipaquirá")
+
+monthly_averages <- zipaquira_data %>%
+  summarise(
+    ENERO = mean(ENERO, na.rm = TRUE),
+    FEBRERO = mean(FEBRERO, na.rm = TRUE),
+    MARZO = mean(MARZO, na.rm = TRUE),
+    ABRIL = mean(ABRIL, na.rm = TRUE),
+    MAYO = mean(MAYO, na.rm = TRUE),
+    JUNIO = mean(JUNIO, na.rm = TRUE),
+    JULIO = mean(JULIO, na.rm = TRUE),
+    AGOSTO = mean(AGOSTO, na.rm = TRUE),
+    SEPTIEMBRE = mean(SEPTIEMBRE, na.rm = TRUE),
+    OCTUBRE = mean(OCTUBRE, na.rm = TRUE),
+    NOVIEMBRE = mean(NOVIEMBRE, na.rm = TRUE),
+    DICIEMBRE = mean(DICIEMBRE, na.rm = TRUE)
+  )
+
+monthly_averages_long <- monthly_averages %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio")
+
+monthly_averages_long$Mes <- factor(monthly_averages_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(monthly_averages_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "cividis") +  
+  labs(title = "Promedio de Precipitaciones Mensuales en Zipaquirá",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+zipaquira_long <- zipaquira_data %>%
+  pivot_longer(
+    cols = ENERO:DICIEMBRE,
+    names_to = "Mes",
+    values_to = "Precipitacion"
+  )
+
+zipaquira_long$Mes <- factor(zipaquira_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(zipaquira_long, aes(x = Mes, y = Precipitacion, fill = Mes)) +
+  geom_boxplot() +  
+  scale_fill_viridis_d(option = "cividis") +  
+  labs(title = "Distribución Mensual de Precipitaciones en Zipaquirá",
+       x = "Mes",
+       y = "Precipitación") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# La Ramada
+
+```{r}
+la_ramada_data <- precipitaciones %>%
+  filter(ESTACIÓN == "La Ramada")
+
+monthly_averages <- la_ramada_data %>%
+  summarise(
+    ENERO = mean(ENERO, na.rm = TRUE),
+    FEBRERO = mean(FEBRERO, na.rm = TRUE),
+    MARZO = mean(MARZO, na.rm = TRUE),
+    ABRIL = mean(ABRIL, na.rm = TRUE),
+    MAYO = mean(MAYO, na.rm = TRUE),
+    JUNIO = mean(JUNIO, na.rm = TRUE),
+    JULIO = mean(JULIO, na.rm = TRUE),
+    AGOSTO = mean(AGOSTO, na.rm = TRUE),
+    SEPTIEMBRE = mean(SEPTIEMBRE, na.rm = TRUE),
+    OCTUBRE = mean(OCTUBRE, na.rm = TRUE),
+    NOVIEMBRE = mean(NOVIEMBRE, na.rm = TRUE),
+    DICIEMBRE = mean(DICIEMBRE, na.rm = TRUE)
+  )
+
+monthly_averages_long <- monthly_averages %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio")
+
+monthly_averages_long$Mes <- factor(monthly_averages_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(monthly_averages_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Promedio de Precipitaciones Mensuales en La Ramada",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+la_ramada_long <- la_ramada_data %>%
+  pivot_longer(
+    cols = ENERO:DICIEMBRE,
+    names_to = "Mes",
+    values_to = "Precipitacion"
+  )
+
+
+la_ramada_long$Mes <- factor(la_ramada_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(la_ramada_long, aes(x = Mes, y = Precipitacion, fill = Mes)) +
+  geom_boxplot() +  
+  labs(title = "Distribución Mensual de Precipitaciones en La Ramada",
+       x = "Mes",
+       y = "Precipitación") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Guatavita
+
+```{r}
+guatavita_data <- precipitaciones %>%
+  filter(ESTACIÓN == "Guatavita")
+
+monthly_averages <- guatavita_data %>%
+  summarise(
+    ENERO = mean(ENERO, na.rm = TRUE),
+    FEBRERO = mean(FEBRERO, na.rm = TRUE),
+    MARZO = mean(MARZO, na.rm = TRUE),
+    ABRIL = mean(ABRIL, na.rm = TRUE),
+    MAYO = mean(MAYO, na.rm = TRUE),
+    JUNIO = mean(JUNIO, na.rm = TRUE),
+    JULIO = mean(JULIO, na.rm = TRUE),
+    AGOSTO = mean(AGOSTO, na.rm = TRUE),
+    SEPTIEMBRE = mean(SEPTIEMBRE, na.rm = TRUE),
+    OCTUBRE = mean(OCTUBRE, na.rm = TRUE),
+    NOVIEMBRE = mean(NOVIEMBRE, na.rm = TRUE),
+    DICIEMBRE = mean(DICIEMBRE, na.rm = TRUE)
+  )
+
+monthly_averages_long <- monthly_averages %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio")
+
+
+monthly_averages_long$Mes <- factor(monthly_averages_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(monthly_averages_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "turbo") +  
+  labs(title = "Promedio de Precipitaciones Mensuales en Guatavita",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+guatavita_long <- guatavita_data %>%
+  pivot_longer(
+    cols = ENERO:DICIEMBRE,
+    names_to = "Mes",
+    values_to = "Precipitacion"
+  )
+
+
+guatavita_long$Mes <- factor(guatavita_long$Mes, levels = c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"))
+
+ggplot(guatavita_long, aes(x = Mes, y = Precipitacion, fill = Mes)) +
+  geom_boxplot() +  
+    scale_fill_viridis_d(option = "turbo") +  
+  labs(title = "Distribución Mensual de Precipitaciones en Guatavita",
+       x = "Mes",
+       y = "Precipitación") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+summary(guatavita_data)
+```
+
+```{r}
+# utm_crs <- "+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs"
+# 
+# # Convertir a un objeto sf
+# precipitaciones_sf <- st_as_sf(precipitaciones, coords = c("X=N", "Y=E"), crs = utm_crs)
+# 
+# # Transformar a latitud y longitud (CRS WGS84)
+# precipitaciones_latlon <- st_transform(precipitaciones_sf, crs = 4326)
+# 
+# # Extraer las coordenadas y añadirlas al dataframe original
+# precipitaciones <- precipitaciones %>%
+#   mutate(lon = st_coordinates(precipitaciones_latlon)[, 1],
+#          lat = st_coordinates(precipitaciones_latlon)[, 2])
+# 
+# # Crear el mapa con todas las estaciones
+# leaflet(precipitaciones) %>%
+#   addTiles() %>%
+#   addMarkers(~lon, ~lat, popup = ~paste(ESTACIÓN, "<br>", MUNICIPIO, "<br>", CUENCA))
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(viridis)
+
+# Filtrar y transformar datos de Zipaquirá
+zipaquira_data <- precipitaciones %>%
+  filter(ESTACIÓN == "Zipaquirá")
+
+monthly_averages_zipaquira <- zipaquira_data %>%
+  summarise(across(ENERO:DICIEMBRE, mean, na.rm = TRUE))
+
+monthly_averages_zipaquira_long <- monthly_averages_zipaquira %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio") %>%
+  mutate(Estacion = "Zipaquirá")
+
+# Filtrar y transformar datos de Represa Sisga
+represa_sisga_data <- precipitaciones %>%
+  filter(ESTACIÓN == "Represa Sisga")
+
+monthly_averages_sisga <- represa_sisga_data %>%
+  summarise(across(ENERO:DICIEMBRE, mean, na.rm = TRUE))
+
+monthly_averages_sisga_long <- monthly_averages_sisga %>%
+  pivot_longer(cols = everything(), names_to = "Mes", values_to = "Promedio") %>%
+  mutate(Estacion = "Represa Sisga")
+
+# Combinar los dos conjuntos de datos
+combined_data <- bind_rows(monthly_averages_zipaquira_long, monthly_averages_sisga_long)
+
+# Crear la gráfica superpuesta con diferente transparencia
+ggplot(combined_data, aes(x = Mes, y = Promedio, fill = Estacion)) +
+  geom_bar(stat = "identity", position = "identity", alpha = 0.6) +
+  scale_fill_viridis_d(option = "viridis") +
+  labs(title = "Promedio de Precipitaciones Mensuales",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Crear la gráfica con las barras una al lado de la otra
+ggplot(combined_data, aes(x = Mes, y = Promedio, fill = Estacion)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis_d(option = "viridis") +
+  labs(title = "Promedio de Precipitaciones Mensuales",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Instalar y cargar el paquete patchwork si no lo tienes instalado
+# install.packages("patchwork")
+library(patchwork)
+
+# Gráfico para Zipaquirá
+zipaquira_plot <- ggplot(monthly_averages_zipaquira_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis") +
+  labs(title = "Promedio de Precipitaciones Mensuales en Zipaquirá",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico para Represa Sisga
+sisga_plot <- ggplot(monthly_averages_sisga_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis") +
+  labs(title = "Promedio de Precipitaciones Mensuales en Represa Sisga",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combinar las gráficas una al lado de la otra
+combined_plot <- zipaquira_plot + sisga_plot
+
+# Mostrar las gráficas
+print(combined_plot)
+
+
+
+# Crear los factores de meses en orden gregoriano
+month_levels <- c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", 
+                  "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE")
+
+# Asegurarse de que las columnas de 'Mes' estén en el orden correcto en ambos datasets
+monthly_averages_zipaquira_long$Mes <- factor(monthly_averages_zipaquira_long$Mes, levels = month_levels)
+monthly_averages_sisga_long$Mes <- factor(monthly_averages_sisga_long$Mes, levels = month_levels)
+
+# Gráfico para Zipaquirá
+zipaquira_plot <- ggplot(monthly_averages_zipaquira_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis") +
+  labs(title = "Promedio de Precipitaciones Mensuales en Zipaquirá",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico para Represa Sisga
+sisga_plot <- ggplot(monthly_averages_sisga_long, aes(x = Mes, y = Promedio, fill = Promedio)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c(option = "viridis") +
+  labs(title = "Promedio de Precipitaciones Mensuales en Represa Sisga",
+       x = "Mes",
+       y = "Promedio de Precipitaciones") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combinar las gráficas una al lado de la otra
+combined_plot <- zipaquira_plot + sisga_plot
+
+# Mostrar las gráficas
+print(combined_plot)
+
+```
